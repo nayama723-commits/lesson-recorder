@@ -5,43 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>レッスンメモ音声入力</title>
   <style>
-    body { 
-      font-family: sans-serif; 
-      padding: 20px; 
-      max-width: 700px; 
-      margin: auto; 
-      background: #f9f9f9; 
-    }
+    body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background: #f9f9f9; }
     h2 { text-align: center; color: #333; }
-    select, button, #result { 
-      margin: 15px 0; 
-      padding: 12px; 
-      width: 100%; 
-      font-size: 17px; 
-      border-radius: 8px; 
-      border: 1px solid #ccc; 
-      box-sizing: border-box; 
-    }
-    button { 
-      background: #27ae60; 
-      color: white; 
-      border: none; 
-      font-weight: bold; 
-      cursor: pointer; 
-      padding: 12px 20px; 
-      margin: 5px; 
-    }
+    select, button, #result { margin: 15px 0; padding: 12px; width: 100%; font-size: 17px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+    button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; padding: 12px 20px; margin: 5px; }
     button.recording { background: #c0392b; }
     button#saveBtn { background: #2980b9; display: none; }
     button#clearBtn { background: #95a5a6; }
-    #status { 
-      color: #e74c3c; 
-      font-weight: bold; 
-      text-align: center; 
-      min-height: 1.5em; 
-      margin: 15px 0; 
-      font-size: 16px; 
-    }
+    #status { color: #e74c3c; font-weight: bold; text-align: center; min-height: 1.5em; margin: 15px 0; font-size: 16px; }
     #result { 
       background: white; 
       min-height: 160px; 
@@ -52,16 +23,13 @@
       outline: none; 
       cursor: text; 
     }
-    #result:focus { 
-      border-color: #2980b9; 
-      box-shadow: 0 0 5px rgba(41,128,185,0.5); 
-    }
+    #result:focus { border-color: #2980b9; box-shadow: 0 0 5px rgba(41,128,185,0.5); }
     .tips { font-size: 14px; color: #555; text-align: center; margin: 10px 0 20px; }
     .button-group { text-align: center; margin: 20px 0; }
   </style>
 </head>
 <body>
-  <h2>レッスン後メモ入力（音声）</h2>
+  <h2>レッスンメモ音声入力</h2>
 
   <label for="studentSelect">生徒を選択：</label>
   <select id="studentSelect">
@@ -87,8 +55,8 @@
   <button id="recordBtn" onclick="toggleRecording()">録音開始</button>
   <div id="status"></div>
   <div class="tips">
-    「録音開始」を押して話し始め、もう一度押して終了してください。<br>
-    終了後、テキストをクリックして編集可能 → 「シートに保存」を押して保存。
+    録音中はテキストが追加され続けます（一時停止しても消えません）。<br>
+    終了後、テキストをクリックして編集 → 「シートに保存」を押すだけ。
   </div>
 
   <h3>認識されたテキスト（編集可）：</h3>
@@ -104,7 +72,7 @@
 
     let recognition = null;
     let isRecording = false;
-    let finalTranscript = '';
+    let lastFinalText = ''; // To avoid re-adding repeated final parts
 
     function toggleRecording() {
       const student = document.getElementById('studentSelect').value;
@@ -135,7 +103,7 @@
 
       recognition.onstart = () => {
         isRecording = true;
-        finalTranscript = ''; // Reset for new session
+        lastFinalText = ''; // Reset for new session
         document.getElementById('result').textContent = '';
         document.getElementById('recordBtn').textContent = '録音中… もう一度押して停止';
         document.getElementById('recordBtn').classList.add('recording');
@@ -144,20 +112,25 @@
       };
 
       recognition.onresult = event => {
-        let interimTranscript = '';
-        finalTranscript = ''; // Rebuild final each time to avoid duplicates
+        let interim = '';
+        let newFinal = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcriptPart = event.results[i][0].transcript;
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const part = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcriptPart + ' ';
+            if (!lastFinalText.endsWith(part)) {  // Avoid repeating same final chunk
+              newFinal += part + ' ';
+            }
           } else {
-            interimTranscript = transcriptPart;
+            interim = part;
           }
         }
 
-        // Display final confirmed text + current interim (clean, no repeats)
-        document.getElementById('result').textContent = finalTranscript + interimTranscript;
+        if (newFinal) {
+          lastFinalText += newFinal;
+        }
+
+        document.getElementById('result').textContent = lastFinalText.trim() + ' ' + interim;
       };
 
       recognition.onerror = event => {
@@ -176,11 +149,11 @@
         document.getElementById('recordBtn').classList.remove('recording');
         isRecording = false;
 
-        // Clean up extra spaces in final text
-        const cleanedText = finalTranscript.trim();
-        document.getElementById('result').textContent = cleanedText;
+        // Final cleanup
+        const cleaned = document.getElementById('result').textContent.trim();
+        document.getElementById('result').textContent = cleaned;
 
-        if (cleanedText) {
+        if (cleaned) {
           document.getElementById('status').textContent = '録音終了。テキストを編集して「シートに保存」を押してください';
           document.getElementById('saveBtn').style.display = 'inline-block';
         } else {
