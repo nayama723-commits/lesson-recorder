@@ -5,55 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>レッスンメモ音声入力</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 20px;
-      max-width: 700px;
-      margin: auto;
-      background: #f9f9f9;
-      color: #333;
-    }
-    h2 { text-align: center; color: #2c3e50; }
-    label { font-weight: bold; display: block; margin: 10px 0 5px; }
-    select, button, textarea, #result {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      box-sizing: border-box;
-      margin-bottom: 12px;
-    }
-    button {
-      background: #27ae60;
-      color: white;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button.recording {
-      background: #c0392b;
-    }
-    #status {
-      color: #e74c3c;
-      font-weight: bold;
-      text-align: center;
-      min-height: 1.5em;
-      margin: 10px 0;
-    }
-    #result {
-      background: white;
-      min-height: 120px;
-      white-space: pre-wrap;
-      padding: 12px;
-      border: 1px solid #ddd;
-    }
-    .tips {
-      font-size: 14px;
-      color: #555;
-      text-align: center;
-      margin: 10px 0 20px;
-    }
+    body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background: #f9f9f9; }
+    h2 { text-align: center; color: #333; }
+    select, button, #result { margin: 15px 0; padding: 12px; width: 100%; font-size: 17px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+    button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; }
+    button.recording { background: #c0392b; }
+    #status { color: #e74c3c; font-weight: bold; text-align: center; min-height: 1.5em; margin: 10px 0; }
+    #result { background: white; min-height: 120px; white-space: pre-wrap; padding: 12px; border: 1px solid #ddd; }
+    .tips { font-size: 14px; color: #555; text-align: center; margin: 10px 0; }
   </style>
 </head>
 <body>
@@ -62,11 +21,11 @@
   <label for="studentSelect">生徒を選択：</label>
   <select id="studentSelect">
     <option value="">―― 生徒を選んでください ――</option>
-    <!-- Add your students manually here for now -->
+    <!-- Add your ~17 students here manually -->
     <option value="テスト生徒1">テスト生徒1</option>
     <option value="テスト生徒2">テスト生徒2</option>
     <option value="テスト生徒3">テスト生徒3</option>
-    <!-- You can add more <option> tags later -->
+    <!-- Add more <option value="生徒名">生徒名</option> -->
   </select>
 
   <button id="recordBtn" onclick="toggleRecording()">録音開始</button>
@@ -80,26 +39,22 @@
   <div id="result"></div>
 
   <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-SKzRZYiHmFHsBBFCyZCA6vOiLj9dvfHDm_gayWY_EHkZ04BxKMMTOu3zPwvHMClz/exec';  // ← Paste your GAS /exec URL here!
+
     let recognition = null;
     let isRecording = false;
 
     function toggleRecording() {
       const student = document.getElementById('studentSelect').value;
-      if (!student) {
-        alert('まず生徒を選択してください');
-        return;
-      }
+      if (!student) return alert('生徒を選択してください');
 
-      if (isRecording) {
-        stopRecording();
-      } else {
-        startRecording();
-      }
+      if (isRecording) stopRecording();
+      else startRecording();
     }
 
     function startRecording() {
       if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-        alert('お使いのブラウザは音声認識に対応していません。\nChrome または Edge をお使いください。');
+        alert('ブラウザが音声認識非対応です。Chromeを使ってください。');
         return;
       }
 
@@ -108,17 +63,17 @@
 
       recognition.lang = 'ja-JP';
       recognition.interimResults = true;
-      recognition.continuous = false;   // short recordings – more reliable on Mac
+      recognition.continuous = false;
 
       recognition.onstart = () => {
         isRecording = true;
         document.getElementById('recordBtn').textContent = '録音中… 話してください';
         document.getElementById('recordBtn').classList.add('recording');
-        document.getElementById('status').textContent = '録音開始しました！すぐに話し始めてください';
+        document.getElementById('status').textContent = '録音開始！すぐに話し始めて';
         document.getElementById('result').textContent = '';
       };
 
-      recognition.onresult = (event) => {
+      recognition.onresult = event => {
         let transcript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript;
@@ -126,13 +81,12 @@
         document.getElementById('result').textContent = transcript;
       };
 
-      recognition.onerror = (event) => {
+      recognition.onerror = event => {
         let msg = 'エラー: ' + event.error;
-        if (event.error === 'no-speech') msg += '（無音が検知されました。すぐに話し始めてください）';
-        if (event.error === 'not-allowed') msg += '（マイクが許可されていません。アドレスバーの鍵アイコン → サイトの設定 → マイクを許可）';
-        if (event.error === 'network') msg += '（ネットワークエラー）';
+        if (event.error === 'no-speech') msg += '（無音検知 - すぐに話し始めて！）';
+        if (event.error === 'not-allowed') msg += '（マイク許可を確認 - アドレスバー鍵アイコン → サイト設定 → マイク）';
         document.getElementById('status').textContent = msg;
-        console.error('Speech Error:', event.error, event.message || '詳細なし');
+        console.error('Speech Error:', event);
         stopRecording();
       };
 
@@ -143,10 +97,10 @@
 
         const text = document.getElementById('result').textContent.trim();
         if (text) {
-          document.getElementById('status').textContent = '録音完了。テキストをコピーしてスプレッドシートに貼り付けてください';
-          // You can add alert("テキストをコピーしました！") or auto-copy later
+          document.getElementById('status').textContent = '録音完了 → 保存中...';
+          parseAndSave(text);
         } else {
-          document.getElementById('status').textContent = '何も認識されませんでした。再試行してください（すぐに話す）';
+          document.getElementById('status').textContent = 'テキストが取れませんでした。再試行してください';
         }
       };
 
@@ -154,13 +108,53 @@
     }
 
     function stopRecording() {
-      if (recognition) {
-        recognition.stop();
-        recognition = null;
-      }
+      if (recognition) recognition.stop();
+      recognition = null;
       isRecording = false;
       document.getElementById('recordBtn').textContent = '録音開始';
       document.getElementById('recordBtn').classList.remove('recording');
+    }
+
+    function parseAndSave(rawText) {
+      const student = document.getElementById('studentSelect').value;
+      const today = new Date().toISOString().split('T')[0];
+
+      let lesson = rawText.trim();
+      let homework = '';
+      let notes = '';
+
+      const hwKeywords = ['宿題', '課題', '宿題は', '宿題：'];
+      let hwIndex = -1;
+      for (let kw of hwKeywords) {
+        const idx = rawText.lastIndexOf(kw);
+        if (idx > hwIndex) hwIndex = idx;
+      }
+      if (hwIndex !== -1) {
+        homework = rawText.substring(hwIndex).trim();
+        lesson = rawText.substring(0, hwIndex).trim();
+      }
+
+      // Send to GAS
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',  // Required for GAS – we can't read response reliably, but save still works
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student: student,
+          date: today,
+          lessonContent: lesson,
+          notes: notes,
+          homework: homework
+        })
+      })
+      .then(() => {
+        document.getElementById('status').textContent = '保存しました！';
+        document.getElementById('result').textContent = '';
+      })
+      .catch(err => {
+        document.getElementById('status').textContent = '保存失敗（ネットワークを確認）: ' + err.message;
+        console.error(err);
+      });
     }
   </script>
 </body>
