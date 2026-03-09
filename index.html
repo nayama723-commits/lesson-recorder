@@ -8,11 +8,14 @@
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background: #f9f9f9; }
     h2 { text-align: center; color: #333; }
     select, button, #result { margin: 15px 0; padding: 12px; width: 100%; font-size: 17px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-    button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; }
+    button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; margin-right: 10px; }
     button.recording { background: #c0392b; }
+    button#saveBtn { background: #2980b9; display: none; }
+    button#clearBtn { background: #95a5a6; }
     #status { color: #e74c3c; font-weight: bold; text-align: center; min-height: 1.5em; margin: 10px 0; }
     #result { background: white; min-height: 120px; white-space: pre-wrap; padding: 12px; border: 1px solid #ddd; }
     .tips { font-size: 14px; color: #555; text-align: center; margin: 10px 0; }
+    .button-group { text-align: center; margin: 15px 0; }
   </style>
 </head>
 <body>
@@ -21,25 +24,29 @@
   <label for="studentSelect">生徒を選択：</label>
   <select id="studentSelect">
     <option value="">―― 生徒を選んでください ――</option>
-    <!-- Add your ~17 students here manually -->
-    <option value="テスト生徒1">Akemi</option>
-    <option value="テスト生徒2">Cayden</option>
-    <option value="テスト生徒3">Mason</option>
-    <!-- Add more <option value="生徒名">生徒名</option> -->
+    <!-- Add your real students here -->
+    <option value="テスト生徒1">テスト生徒1</option>
+    <option value="テスト生徒2">テスト生徒2</option>
+    <!-- Add more <option value="名前">名前</option> -->
   </select>
 
   <button id="recordBtn" onclick="toggleRecording()">録音開始</button>
   <div id="status"></div>
   <div class="tips">
-    ボタンを押したら<strong>すぐに</strong>はっきり話し始めてください。<br>
-    例: 「今日は名刺を10個勉強しました。会話練習をしました。宿題は95ページです。」
+    「録音開始」を押して話し始め、「録音停止」を押して終了してください。<br>
+    テキストが出たら「シートに保存」を押して確認・保存。
   </div>
 
   <h3>認識されたテキスト：</h3>
   <div id="result"></div>
 
+  <div class="button-group">
+    <button id="saveBtn" onclick="saveToSheet()">シートに保存</button>
+    <button id="clearBtn" onclick="clearResult()">クリア</button>
+  </div>
+
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-SKzRZYiHmFHsBBFCyZCA6vOiLj9dvfHDm_gayWY_EHkZ04BxKMMTOu3zPwvHMClz/exec';  // ← Paste your GAS /exec URL here!
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-SKzRZYiHmFHsBBFCyZCA6vOiLj9dvfHDm_gayWY_EHkZ04BxKMMTOu3zPwvHMClz/exec';  // ← your working URL
 
     let recognition = null;
     let isRecording = false;
@@ -48,8 +55,11 @@
       const student = document.getElementById('studentSelect').value;
       if (!student) return alert('生徒を選択してください');
 
-      if (isRecording) stopRecording();
-      else startRecording();
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
     }
 
     function startRecording() {
@@ -63,14 +73,15 @@
 
       recognition.lang = 'ja-JP';
       recognition.interimResults = true;
-      recognition.continuous = false;
+      recognition.continuous = true;  // continuous for manual stop
 
       recognition.onstart = () => {
         isRecording = true;
-        document.getElementById('recordBtn').textContent = '録音中… 話してください';
+        document.getElementById('recordBtn').textContent = '録音中… もう一度押して停止';
         document.getElementById('recordBtn').classList.add('recording');
-        document.getElementById('status').textContent = '録音開始！すぐに話し始めて';
+        document.getElementById('status').textContent = '録音開始しました。話してください';
         document.getElementById('result').textContent = '';
+        document.getElementById('saveBtn').style.display = 'none';
       };
 
       recognition.onresult = event => {
@@ -83,8 +94,8 @@
 
       recognition.onerror = event => {
         let msg = 'エラー: ' + event.error;
-        if (event.error === 'no-speech') msg += '（無音検知 - すぐに話し始めて！）';
-        if (event.error === 'not-allowed') msg += '（マイク許可を確認 - アドレスバー鍵アイコン → サイト設定 → マイク）';
+        if (event.error === 'no-speech') msg += '（無音検知）';
+        if (event.error === 'not-allowed') msg += '（マイク許可を確認）';
         document.getElementById('status').textContent = msg;
         console.error('Speech Error:', event);
         stopRecording();
@@ -94,13 +105,12 @@
         document.getElementById('recordBtn').textContent = '録音開始';
         document.getElementById('recordBtn').classList.remove('recording');
         isRecording = false;
-
         const text = document.getElementById('result').textContent.trim();
         if (text) {
-          document.getElementById('status').textContent = '録音完了 → 保存中...';
-          parseAndSave(text);
+          document.getElementById('status').textContent = '録音終了。テキストを確認して「シートに保存」を押してください';
+          document.getElementById('saveBtn').style.display = 'inline-block';
         } else {
-          document.getElementById('status').textContent = 'テキストが取れませんでした。再試行してください';
+          document.getElementById('status').textContent = 'テキストが取れませんでした';
         }
       };
 
@@ -108,18 +118,26 @@
     }
 
     function stopRecording() {
-      if (recognition) recognition.stop();
-      recognition = null;
+      if (recognition) {
+        recognition.stop();
+        recognition = null;
+      }
       isRecording = false;
       document.getElementById('recordBtn').textContent = '録音開始';
       document.getElementById('recordBtn').classList.remove('recording');
     }
 
-    function parseAndSave(rawText) {
+    function saveToSheet() {
+      const rawText = document.getElementById('result').textContent.trim();
+      if (!rawText) {
+        alert('保存するテキストがありません');
+        return;
+      }
+
       const student = document.getElementById('studentSelect').value;
       const today = new Date().toISOString().split('T')[0];
 
-      let lesson = rawText.trim();
+      let lesson = rawText;
       let homework = '';
       let notes = '';
 
@@ -134,10 +152,17 @@
         lesson = rawText.substring(0, hwIndex).trim();
       }
 
-      // Send to GAS
+      const preview = `生徒: ${student}\n日付: ${today}\n内容: ${lesson}\n宿題: ${homework}\nメモ: ${notes || '(なし)'}`;
+      if (!confirm(`これで保存しますか？\n\n${preview}`)) {
+        document.getElementById('status').textContent = 'キャンセルしました';
+        return;
+      }
+
+      document.getElementById('status').textContent = '保存中...';
+
       fetch(SCRIPT_URL, {
         method: 'POST',
-        mode: 'no-cors',  // Required for GAS – we can't read response reliably, but save still works
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student: student,
@@ -148,13 +173,20 @@
         })
       })
       .then(() => {
-        document.getElementById('status').textContent = '保存しました！';
+        document.getElementById('status').textContent = '保存成功！シートを確認してください';
         document.getElementById('result').textContent = '';
+        document.getElementById('saveBtn').style.display = 'none';
       })
       .catch(err => {
-        document.getElementById('status').textContent = '保存失敗（ネットワークを確認）: ' + err.message;
-        console.error(err);
+        document.getElementById('status').textContent = '保存失敗: ' + err.message;
+        console.error('Fetch error:', err);
       });
+    }
+
+    function clearResult() {
+      document.getElementById('result').textContent = '';
+      document.getElementById('status').textContent = 'クリアしました';
+      document.getElementById('saveBtn').style.display = 'none';
     }
   </script>
 </body>
