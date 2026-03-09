@@ -13,13 +13,23 @@
     button#saveBtn { background: #2980b9; display: none; }
     button#clearBtn { background: #95a5a6; }
     #status { color: #e74c3c; font-weight: bold; text-align: center; min-height: 1.5em; margin: 10px 0; }
-    #result { background: white; min-height: 120px; white-space: pre-wrap; padding: 12px; border: 1px solid #ddd; }
+    #result { 
+      background: white; 
+      min-height: 160px; 
+      white-space: pre-wrap; 
+      padding: 12px; 
+      border: 1px solid #aaa; 
+      border-radius: 8px; 
+      outline: none; 
+      cursor: text; 
+    }
+    #result:focus { border-color: #2980b9; box-shadow: 0 0 5px rgba(41,128,185,0.5); }
     .tips { font-size: 14px; color: #555; text-align: center; margin: 10px 0; }
     .button-group { text-align: center; margin: 15px 0; }
   </style>
 </head>
 <body>
-  <h2>レッスン後メモ入力（音声）</h2>
+  <h2>レッスンメモ音声入力</h2>
 
   <label for="studentSelect">生徒を選択：</label>
   <select id="studentSelect">
@@ -27,6 +37,7 @@
     <option value="Akemi">Akemi</option>
     <option value="Mason">Mason</option>
     <option value="Cayden">Cayden</option>
+    <option value="Hani">Hani</option>
     <option value="Calvin">Kelwin</option>
     <option value="Jayden">Jayden</option>
     <option value="Kimo">Kimo</option>
@@ -45,11 +56,11 @@
   <div id="status"></div>
   <div class="tips">
     「録音開始」を押して話し始め、もう一度押して終了してください。<br>
-    テキストが出たら「シートに保存」を押して確認・保存。
+    終了後、テキストをクリックして編集可能 → 「シートに保存」を押して保存。
   </div>
 
-  <h3>認識されたテキスト：</h3>
-  <div id="result"></div>
+  <h3>認識されたテキスト（編集可）：</h3>
+  <div id="result" contenteditable="true"></div>
 
   <div class="button-group">
     <button id="saveBtn" onclick="saveToSheet()">シートに保存</button>
@@ -57,14 +68,17 @@
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-SKzRZYiHmFHsBBFCyZCA6vOiLj9dvfHDm_gayWY_EHkZ04BxKMMTOu3zPwvHMClz/exec';  // ← your working URL
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-SKzRZYiHmFHsBBFCyZCA6vOiLj9dvfHDm_gayWY_EHkZ04BxKMMTOu3zPwvHMClz/exec';
 
     let recognition = null;
     let isRecording = false;
 
     function toggleRecording() {
       const student = document.getElementById('studentSelect').value;
-      if (!student) return alert('生徒を選択してください');
+      if (!student) {
+        alert('生徒を選択してください');
+        return;
+      }
 
       if (isRecording) {
         stopRecording();
@@ -84,23 +98,24 @@
 
       recognition.lang = 'ja-JP';
       recognition.interimResults = true;
-      recognition.continuous = true;  // 連続録音（手動停止用）
+      recognition.continuous = true;
 
       recognition.onstart = () => {
         isRecording = true;
         document.getElementById('recordBtn').textContent = '録音中… もう一度押して停止';
         document.getElementById('recordBtn').classList.add('recording');
         document.getElementById('status').textContent = '録音開始しました。話してください';
-        document.getElementById('result').textContent = '';
         document.getElementById('saveBtn').style.display = 'none';
       };
 
       recognition.onresult = event => {
-        let transcript = '';
+        let newTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
+          newTranscript += event.results[i][0].transcript;
         }
-        document.getElementById('result').textContent = transcript;
+        // Append only new parts (prevents overwriting on pause/resume)
+        const currentText = document.getElementById('result').textContent;
+        document.getElementById('result').textContent = currentText + newTranscript;
       };
 
       recognition.onerror = event => {
@@ -113,12 +128,15 @@
       };
 
       recognition.onend = () => {
+        if (!isRecording) return;  // Prevent duplicate calls
+
         document.getElementById('recordBtn').textContent = '録音開始';
         document.getElementById('recordBtn').classList.remove('recording');
         isRecording = false;
+
         const text = document.getElementById('result').textContent.trim();
         if (text) {
-          document.getElementById('status').textContent = '録音終了。テキストを確認して「シートに保存」を押してください';
+          document.getElementById('status').textContent = '録音終了。テキストを編集して「シートに保存」を押してください';
           document.getElementById('saveBtn').style.display = 'inline-block';
         } else {
           document.getElementById('status').textContent = 'テキストが取れませんでした';
@@ -161,12 +179,6 @@
       if (hwIndex !== -1) {
         homework = rawText.substring(hwIndex).trim();
         lesson = rawText.substring(0, hwIndex).trim();
-      }
-
-      const preview = `生徒: ${student}\n日付: ${today}\n内容: ${lesson}\n宿題: ${homework}\nメモ: ${notes || '(なし)'}`;
-      if (!confirm(`これで保存しますか？\n\n${preview}`)) {
-        document.getElementById('status').textContent = 'キャンセルしました';
-        return;
       }
 
       document.getElementById('status').textContent = '保存中...';
