@@ -10,7 +10,7 @@
     select, button, #result { margin: 15px 0; padding: 12px; width: 100%; font-size: 17px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
     button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; padding: 12px 20px; margin: 5px; }
     button.recording { background: #c0392b; }
-    button#saveBtn { background: #2980b9; display: none; }
+    button#saveBtn { background: #2980b9; }
     button#clearBtn { background: #95a5a6; }
     #status { color: #e74c3c; font-weight: bold; text-align: center; min-height: 1.5em; margin: 15px 0; font-size: 16px; }
     #result { 
@@ -29,7 +29,7 @@
   </style>
 </head>
 <body>
-  <h2>レッスンメモ音声入力</h2>
+  <h2>レッスン後メモ入力（音声）</h2>
 
   <label for="studentSelect">生徒を選択：</label>
   <select id="studentSelect">
@@ -55,8 +55,8 @@
   <button id="recordBtn" onclick="toggleRecording()">録音開始</button>
   <div id="status"></div>
   <div class="tips">
-    録音中はテキストが追加され続けます（一時停止しても消えません）。<br>
-    終了後、テキストをクリックして編集 → 「シートに保存」を押すだけ。
+    「録音開始」を押して話し始め、もう一度押して終了してください。<br>
+    テキストが出たら編集して「シートに保存」を押すだけ（常に表示されます）。
   </div>
 
   <h3>認識されたテキスト（編集可）：</h3>
@@ -72,7 +72,7 @@
 
     let recognition = null;
     let isRecording = false;
-    let lastFinalText = ''; // To avoid re-adding repeated final parts
+    let lastFinalText = '';
 
     function toggleRecording() {
       const student = document.getElementById('studentSelect').value;
@@ -103,12 +103,11 @@
 
       recognition.onstart = () => {
         isRecording = true;
-        lastFinalText = ''; // Reset for new session
+        lastFinalText = '';
         document.getElementById('result').textContent = '';
         document.getElementById('recordBtn').textContent = '録音中… もう一度押して停止';
         document.getElementById('recordBtn').classList.add('recording');
         document.getElementById('status').textContent = '録音開始しました。話してください';
-        document.getElementById('saveBtn').style.display = 'none';
       };
 
       recognition.onresult = event => {
@@ -118,7 +117,7 @@
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const part = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            if (!lastFinalText.endsWith(part)) {  // Avoid repeating same final chunk
+            if (!lastFinalText.endsWith(part.trim())) {
               newFinal += part + ' ';
             }
           } else {
@@ -149,13 +148,11 @@
         document.getElementById('recordBtn').classList.remove('recording');
         isRecording = false;
 
-        // Final cleanup
         const cleaned = document.getElementById('result').textContent.trim();
         document.getElementById('result').textContent = cleaned;
 
         if (cleaned) {
           document.getElementById('status').textContent = '録音終了。テキストを編集して「シートに保存」を押してください';
-          document.getElementById('saveBtn').style.display = 'inline-block';
         } else {
           document.getElementById('status').textContent = 'テキストが取れませんでした';
         }
@@ -216,7 +213,6 @@
       .then(() => {
         document.getElementById('status').textContent = '保存成功！シートを確認してください';
         document.getElementById('result').textContent = '';
-        document.getElementById('saveBtn').style.display = 'none';
       })
       .catch(err => {
         document.getElementById('status').textContent = '保存失敗: ' + err.message;
@@ -227,7 +223,6 @@
     function clearResult() {
       document.getElementById('result').textContent = '';
       document.getElementById('status').textContent = 'クリアしました';
-      document.getElementById('saveBtn').style.display = 'none';
     }
   </script>
 </body>
