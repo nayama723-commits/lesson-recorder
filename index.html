@@ -24,16 +24,27 @@
   <label for="studentSelect">生徒を選択：</label>
   <select id="studentSelect">
     <option value="">―― 生徒を選んでください ――</option>
-    <!-- Add your real students here -->
-    <option value="テスト生徒1">テスト生徒1</option>
-    <option value="テスト生徒2">テスト生徒2</option>
-    <!-- Add more <option value="名前">名前</option> -->
+    <option value="Akemi">Akemi</option>
+    <option value="Mason">Mason</option>
+    <option value="Cayden">Cayden</option>
+    <option value="Calvin">Kelwin</option>
+    <option value="Jayden">Jayden</option>
+    <option value="Kimo">Kimo</option>
+    <option value="Jinho">Jinho</option>
+    <option value="Lev">Lev</option>
+    <option value="Logan">Logan</option>
+    <option value="Hana">Hanna</option>
+    <option value="Kevin">Kevin</option>
+    <option value="Leia">Leia</option>
+    <option value="Luke">Luke</option>
+    <option value="Stephanie">Stephanie</option>
+    <option value="Bianca">Bianca</option>
   </select>
 
   <button id="recordBtn" onclick="toggleRecording()">録音開始</button>
   <div id="status"></div>
   <div class="tips">
-    「録音開始」を押して話し始め、「録音停止」を押して終了してください。<br>
+    「録音開始」を押して話し始め、もう一度押して終了してください。<br>
     テキストが出たら「シートに保存」を押して確認・保存。
   </div>
 
@@ -73,7 +84,7 @@
 
       recognition.lang = 'ja-JP';
       recognition.interimResults = true;
-      recognition.continuous = true;  // continuous for manual stop
+      recognition.continuous = true;  // 連続録音（手動停止用）
 
       recognition.onstart = () => {
         isRecording = true;
