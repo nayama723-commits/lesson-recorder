@@ -1,215 +1,159 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>レッスンメモ音声入力</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background: #f9f9f9; }
-    h2 { text-align: center; color: #333; }
-    select, button, #result { margin: 15px 0; padding: 12px; width: 100%; font-size: 17px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-    button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; margin-right: 10px; }
-    button.recording { background: #c0392b; }
-    button#saveBtn { background: #2980b9; display: none; }
-    button#clearBtn { background: #95a5a6; }
-    #status { color: #e74c3c; font-weight: bold; text-align: center; min-height: 1.5em; margin: 10px 0; }
-    #result { 
-      background: white; 
-      min-height: 160px; 
-      white-space: pre-wrap; 
-      padding: 12px; 
-      border: 1px solid #aaa; 
-      border-radius: 8px; 
-      outline: none; 
-      cursor: text; 
-    }
-    #result:focus { border-color: #2980b9; box-shadow: 0 0 5px rgba(41,128,185,0.5); }
-    .tips { font-size: 14px; color: #555; text-align: center; margin: 10px 0; }
-    .button-group { text-align: center; margin: 15px 0; }
-  </style>
-</head>
-<body>
-  <h2>レッスンメモ音声入力</h2>
+<script>
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-SKzRZYiHmFHsBBFCyZCA6vOiLj9dvfHDm_gayWY_EHkZ04BxKMMTOu3zPwvHMClz/exec';
 
-  <label for="studentSelect">生徒を選択：</label>
-  <select id="studentSelect">
-    <option value="">―― 生徒を選んでください ――</option>
-    <option value="Akemi">Akemi</option>
-    <option value="Mason">Mason</option>
-    <option value="Cayden">Cayden</option>
-    <option value="Kelwin">Kelwin</option>
-    <option value="Jayden">Jayden</option>
-    <option value="Kimo">Kimo</option>
-    <option value="Jinho">Jinho</option>
-    <option value="Lev">Lev</option>
-    <option value="Logan">Logan</option>
-    <option value="Hanna">Hanna</option>
-    <option value="Kevin">Kevin</option>
-    <option value="Leia">Leia</option>
-    <option value="Luke">Luke</option>
-    <option value="Stephanie">Stephanie</option>
-    <option value="Bianca">Bianca</option>
-  </select>
+  let recognition = null;
+  let isRecording = false;
+  let finalTranscript = '';  // Store confirmed (final) text
 
-  <button id="recordBtn" onclick="toggleRecording()">録音開始</button>
-  <div id="status"></div>
-  <div class="tips">
-    「録音開始」を押して話し始め、もう一度押して終了してください。<br>
-    終了後、テキストをクリックして編集可能 → 「シートに保存」を押して保存。
-  </div>
-
-  <h3>認識されたテキスト（編集可）：</h3>
-  <div id="result" contenteditable="true"></div>
-
-  <div class="button-group">
-    <button id="saveBtn" onclick="saveToSheet()">シートに保存</button>
-    <button id="clearBtn" onclick="clearResult()">クリア</button>
-  </div>
-
-  <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-SKzRZYiHmFHsBBFCyZCA6vOiLj9dvfHDm_gayWY_EHkZ04BxKMMTOu3zPwvHMClz/exec';
-
-    let recognition = null;
-    let isRecording = false;
-
-    function toggleRecording() {
-      const student = document.getElementById('studentSelect').value;
-      if (!student) {
-        alert('生徒を選択してください');
-        return;
-      }
-
-      if (isRecording) {
-        stopRecording();
-      } else {
-        startRecording();
-      }
+  function toggleRecording() {
+    const student = document.getElementById('studentSelect').value;
+    if (!student) {
+      alert('生徒を選択してください');
+      return;
     }
 
-    function startRecording() {
-      if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-        alert('ブラウザが音声認識非対応です。Chromeを使ってください。');
-        return;
-      }
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }
 
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
+  function startRecording() {
+    if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+      alert('ブラウザが音声認識非対応です。Chromeを使ってください。');
+      return;
+    }
 
-      recognition.lang = 'ja-JP';
-      recognition.interimResults = true;
-      recognition.continuous = true;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
 
-      recognition.onstart = () => {
-        isRecording = true;
-        document.getElementById('recordBtn').textContent = '録音中… もう一度押して停止';
-        document.getElementById('recordBtn').classList.add('recording');
-        document.getElementById('status').textContent = '録音開始しました。話してください';
-        document.getElementById('saveBtn').style.display = 'none';
-      };
+    recognition.lang = 'ja-JP';
+    recognition.interimResults = true;
+    recognition.continuous = true;
 
-      recognition.onresult = event => {
-        let newTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          newTranscript += event.results[i][0].transcript;
-        }
-        // Append only new parts (prevents overwriting on pause/resume)
-        const currentText = document.getElementById('result').textContent;
-        document.getElementById('result').textContent = currentText + newTranscript;
-      };
+    recognition.onstart = () => {
+      isRecording = true;
+      finalTranscript = '';  // Reset final on new recording
+      document.getElementById('result').textContent = '';
+      document.getElementById('recordBtn').textContent = '録音中… もう一度押して停止';
+      document.getElementById('recordBtn').classList.add('recording');
+      document.getElementById('status').textContent = '録音開始しました。話してください';
+      document.getElementById('saveBtn').style.display = 'none';
+    };
 
-      recognition.onerror = event => {
-        let msg = 'エラー: ' + event.error;
-        if (event.error === 'no-speech') msg += '（無音検知）';
-        if (event.error === 'not-allowed') msg += '（マイク許可を確認）';
-        document.getElementById('status').textContent = msg;
-        console.error('Speech Error:', event);
-        stopRecording();
-      };
+    recognition.onresult = event => {
+      let interimTranscript = '';
+      finalTranscript = '';  // Rebuild final each time
 
-      recognition.onend = () => {
-        if (!isRecording) return;  // Prevent duplicate calls
-
-        document.getElementById('recordBtn').textContent = '録音開始';
-        document.getElementById('recordBtn').classList.remove('recording');
-        isRecording = false;
-
-        const text = document.getElementById('result').textContent.trim();
-        if (text) {
-          document.getElementById('status').textContent = '録音終了。テキストを編集して「シートに保存」を押してください';
-          document.getElementById('saveBtn').style.display = 'inline-block';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcriptPart = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcriptPart + ' ';  // Append final parts
         } else {
-          document.getElementById('status').textContent = 'テキストが取れませんでした';
+          interimTranscript = transcriptPart;  // Show live partial
         }
-      };
-
-      recognition.start();
-    }
-
-    function stopRecording() {
-      if (recognition) {
-        recognition.stop();
-        recognition = null;
       }
-      isRecording = false;
+
+      // Display final + current interim (no duplicates from pauses)
+      document.getElementById('result').textContent = finalTranscript + interimTranscript;
+    };
+
+    recognition.onerror = event => {
+      let msg = 'エラー: ' + event.error;
+      if (event.error === 'no-speech') msg += '（無音検知）';
+      if (event.error === 'not-allowed') msg += '（マイク許可を確認）';
+      document.getElementById('status').textContent = msg;
+      console.error('Speech Error:', event);
+      stopRecording();
+    };
+
+    recognition.onend = () => {
+      if (!isRecording) return;
+
       document.getElementById('recordBtn').textContent = '録音開始';
       document.getElementById('recordBtn').classList.remove('recording');
+      isRecording = false;
+
+      // Final clean-up: trim extra spaces
+      const text = document.getElementById('result').textContent.trim();
+      document.getElementById('result').textContent = text;
+
+      if (text) {
+        document.getElementById('status').textContent = '録音終了。テキストを編集して「シートに保存」を押してください';
+        document.getElementById('saveBtn').style.display = 'inline-block';
+      } else {
+        document.getElementById('status').textContent = 'テキストが取れませんでした';
+      }
+    };
+
+    recognition.start();
+  }
+
+  function stopRecording() {
+    if (recognition) {
+      recognition.stop();
+      recognition = null;
+    }
+    isRecording = false;
+    document.getElementById('recordBtn').textContent = '録音開始';
+    document.getElementById('recordBtn').classList.remove('recording');
+  }
+
+  // saveToSheet, clearResult remain the same as before
+  function saveToSheet() {
+    const rawText = document.getElementById('result').textContent.trim();
+    if (!rawText) {
+      alert('保存するテキストがありません');
+      return;
     }
 
-    function saveToSheet() {
-      const rawText = document.getElementById('result').textContent.trim();
-      if (!rawText) {
-        alert('保存するテキストがありません');
-        return;
-      }
+    const student = document.getElementById('studentSelect').value;
+    const today = new Date().toISOString().split('T')[0];
 
-      const student = document.getElementById('studentSelect').value;
-      const today = new Date().toISOString().split('T')[0];
+    let lesson = rawText;
+    let homework = '';
+    let notes = '';
 
-      let lesson = rawText;
-      let homework = '';
-      let notes = '';
-
-      const hwKeywords = ['宿題', '課題', '宿題は', '宿題：'];
-      let hwIndex = -1;
-      for (let kw of hwKeywords) {
-        const idx = rawText.lastIndexOf(kw);
-        if (idx > hwIndex) hwIndex = idx;
-      }
-      if (hwIndex !== -1) {
-        homework = rawText.substring(hwIndex).trim();
-        lesson = rawText.substring(0, hwIndex).trim();
-      }
-
-      document.getElementById('status').textContent = '保存中...';
-
-      fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          student: student,
-          date: today,
-          lessonContent: lesson,
-          notes: notes,
-          homework: homework
-        })
-      })
-      .then(() => {
-        document.getElementById('status').textContent = '保存成功！シートを確認してください';
-        document.getElementById('result').textContent = '';
-        document.getElementById('saveBtn').style.display = 'none';
-      })
-      .catch(err => {
-        document.getElementById('status').textContent = '保存失敗: ' + err.message;
-        console.error('Fetch error:', err);
-      });
+    const hwKeywords = ['宿題', '課題', '宿題は', '宿題：'];
+    let hwIndex = -1;
+    for (let kw of hwKeywords) {
+      const idx = rawText.lastIndexOf(kw);
+      if (idx > hwIndex) hwIndex = idx;
+    }
+    if (hwIndex !== -1) {
+      homework = rawText.substring(hwIndex).trim();
+      lesson = rawText.substring(0, hwIndex).trim();
     }
 
-    function clearResult() {
+    document.getElementById('status').textContent = '保存中...';
+
+    fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        student: student,
+        date: today,
+        lessonContent: lesson,
+        notes: notes,
+        homework: homework
+      })
+    })
+    .then(() => {
+      document.getElementById('status').textContent = '保存成功！シートを確認してください';
       document.getElementById('result').textContent = '';
-      document.getElementById('status').textContent = 'クリアしました';
       document.getElementById('saveBtn').style.display = 'none';
-    }
-  </script>
-</body>
-</html>
+    })
+    .catch(err => {
+      document.getElementById('status').textContent = '保存失敗: ' + err.message;
+      console.error('Fetch error:', err);
+    });
+  }
+
+  function clearResult() {
+    document.getElementById('result').textContent = '';
+    document.getElementById('status').textContent = 'クリアしました';
+    document.getElementById('saveBtn').style.display = 'none';
+  }
+</script>
